@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import {Votes} from "@openzeppelin/contracts/governance/utils/Votes.sol";
+import {Votes, EIP712} from "@openzeppelin/contracts/governance/utils/Votes.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 contract GBCVotes is Votes {
 
-    address GBC = address(0x17f4BAa9D35Ee54fFbCb2608e20786473c7aa49f);
+    address public admin;
+    address public GBC = address(0x17f4BAa9D35Ee54fFbCb2608e20786473c7aa49f);
+    
     mapping(address => bool) public whitelist;
 
     /********************************** Constructor **********************************/
 
-    constructor(address _admin) {
+    constructor(address _admin) EIP712("GBCVotes", "1") {
         admin = _admin;
     }
 
@@ -38,4 +40,8 @@ contract GBCVotes is Votes {
     function _getVotingUnits(address account) internal view override returns (uint256) {
         return IERC721(GBC).balanceOf(account);
     }
+
+    /********************************** Errors **********************************/
+
+    error Unauthorised();
 }
