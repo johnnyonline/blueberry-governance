@@ -5,7 +5,6 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
 import {Authority} from "@solmate/auth/Auth.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
@@ -15,8 +14,6 @@ import {IGLPAdapter, AccountState} from "src/interfaces/IGLPAdapter.sol";
 import {PrizePoolDistributor} from "src/PrizePoolDistributor.sol";
 
 contract testPrizePoolDistributor is Test {
-
-    // using SafeERC20 for IERC20;
 
     uint256 id1 = 6163;
     uint256 id2 = 94;
@@ -29,7 +26,7 @@ contract testPrizePoolDistributor is Test {
     address bob = makeAddr("bob");
     address yossi = makeAddr("yossi");
     address muxContainer = address(0xCD4cC991E6cCB8A0Ebfb8f11E68bD5A125D2BB3B);
-    // address muxContainerOwner = IGLPAdapter(muxContainer).muxAccountState().account;
+    address muxContainerOwner;
     address gbcWhale = address(0x5C1E6bA712e9FC3399Ee7d5824B6Ec68A0363C02);
     address gbc = address(0x17f4BAa9D35Ee54fFbCb2608e20786473c7aa49f);
 
@@ -50,11 +47,12 @@ contract testPrizePoolDistributor is Test {
         vm.deal(bob, 100 ether);
         vm.deal(yossi, 100 ether);
 
-        // send GBCs from gbcWhale to alice, bob and muxContainer
+        muxContainerOwner = IGLPAdapter(muxContainer).muxAccountState().account;
+
         vm.startPrank(gbcWhale);
         IERC721(gbc).transferFrom(gbcWhale, alice, id1);
         IERC721(gbc).transferFrom(gbcWhale, bob, id2);
-        IERC721(gbc).transferFrom(gbcWhale, muxContainer, id3);
+        IERC721(gbc).transferFrom(gbcWhale, muxContainerOwner, id3);
         vm.stopPrank();
 
         owner = address(0xDe2DBb7f1C893Cc5E2f51CbFd2A73C8a016183a0); // https://arbiscan.io/address/0x575F40E8422EfA696108dAFD12cD8d6366982416#readContract
@@ -69,6 +67,10 @@ contract testPrizePoolDistributor is Test {
     // ============================================================================================
 
     function testFlow() public {
+        (uint256 _aliceReward, uint256 _bobReward, uint256 _yossiReward, uint256 _muxContainerReward) = _testDistribute();
+        _testClaim(_aliceReward, _bobReward);
+        _testMuxClaim(_muxContainerReward);
+        assertEq(IERC20(WETH).balanceOf(address(prizePoolDistributor)), _yossiReward, "testFlow: E0");
         _testDistribute();
     }
 
@@ -76,14 +78,19 @@ contract testPrizePoolDistributor is Test {
     // Internal Functions
     // ============================================================================================
 
-    function _testDistribute() internal {
+    function _testDistribute() internal returns (uint256 _aliceReward, uint256 _bobReward, uint256 _yossiReward, uint256 _muxContainerReward) {
         uint256 _oldWETHBalance = IERC20(WETH).balanceOf(address(prizePoolDistributor));
         uint256 _totalNewRewards = 10 ether;
+
+        _aliceReward = 1 ether;
+        _bobReward = 2 ether;
+        _yossiReward = 3 ether;
+        _muxContainerReward = 4 ether;
         uint256[] memory _rewardsList = new uint256[](4);
-        _rewardsList[0] = 1 ether;
-        _rewardsList[1] = 2 ether;
-        _rewardsList[2] = 3 ether;
-        _rewardsList[3] = 4 ether;
+        _rewardsList[0] = _aliceReward;
+        _rewardsList[1] = _bobReward;
+        _rewardsList[2] = _yossiReward;
+        _rewardsList[3] = _muxContainerReward;
 
         address[] memory _winnersList = new address[](4);
         _winnersList[0] = alice;
@@ -118,10 +125,67 @@ contract testPrizePoolDistributor is Test {
         assertEq(prizePoolDistributor.winnersReward(bob), 2 ether, "_testDistribute: E4");
         assertEq(prizePoolDistributor.winnersReward(yossi), 3 ether, "_testDistribute: E5");
         assertEq(prizePoolDistributor.winnersReward(muxContainer), 4 ether, "_testDistribute: E6");
+        assertEq(prizePoolDistributor.muxContainerOwner(muxContainer), muxContainerOwner, "_testDistribute: E7");
+        assertEq(IERC20(WETH).balanceOf(address(prizePoolDistributor)), _totalNewRewards + _oldWETHBalance, "_testDistribute: E8");
+    }
 
-        // assertEq(prizePoolDistributor.muxContainerOwner(muxContainer), muxContainerOwner, "_testDistribute: E7");
-        // 8. TODO - WETH balance of prizePoolDistributor is _totalNewRewards + oldWETHBalance
-        assertEq(IERC20(WETH).balanceOf(address(prizePoolDistributor)), _totalNewRewards + _oldWETHBalance, "_testDistribute: E9");
+    function _testClaim(uint256 _aliceReward, uint256 _bobReward) internal {
+        uint256 _aliceBalanceBefore = IERC20(WETH).balanceOf(alice);
+        uint256 _bobBalanceBefore = IERC20(WETH).balanceOf(bob);
 
+        vm.expectRevert(); // reverts with "NotClaimable"
+        prizePoolDistributor.claim(5, alice);
+
+        vm.startPrank(owner);
+        prizePoolDistributor.setClaimable(true);
+        vm.stopPrank();
+        
+        assertEq(prizePoolDistributor.isTokenUsed(id1), false, "_testClaim: E00");
+        vm.startPrank(alice);
+        vm.expectRevert(); // reverts with "NotOwnerOfToken"
+        prizePoolDistributor.claim(5, alice);
+
+        uint256 _aliceRewardOut = prizePoolDistributor.claim(id1, alice);
+        vm.stopPrank();
+
+        assertEq(_aliceReward, _aliceRewardOut, "_testClaim: E0");
+        assertEq(IERC20(WETH).balanceOf(alice), _aliceBalanceBefore + _aliceReward, "_testClaim: E1");
+        assertEq(prizePoolDistributor.isTokenUsed(id1), true, "_testClaim: E01");
+        assertEq(prizePoolDistributor.usedTokens(0), id1, "_testClaim: E001");
+
+        assertEq(prizePoolDistributor.isTokenUsed(id2), false, "_testClaim: E02");
+        vm.startPrank(bob);
+        uint256 _bobRewardOut = prizePoolDistributor.claim(id2, bob);
+        vm.stopPrank();
+
+        assertEq(_bobReward, _bobRewardOut, "_testClaim: E2");
+        assertEq(IERC20(WETH).balanceOf(bob), _bobBalanceBefore + _bobReward, "_testClaim: E3");
+        assertEq(prizePoolDistributor.isTokenUsed(id2), true, "_testClaim: E03");
+        assertEq(prizePoolDistributor.usedTokens(1), id2, "_testClaim: E003");
+
+        assertEq(prizePoolDistributor.isTokenUsed(id3), false, "_testClaim: E04");
+        vm.startPrank(yossi);
+        vm.expectRevert(); // reverts with "NotOwnerOfToken"
+        prizePoolDistributor.claim(id3, yossi);
+        vm.stopPrank();
+    }
+
+    function _testMuxClaim(uint256 _muxContainerReward) internal {
+        uint256 _muxContainerOwnerBalanceBefore = IERC20(WETH).balanceOf(muxContainerOwner);
+
+        vm.startPrank(owner);
+        vm.expectRevert(); // reverts with "NotContainerOwner"
+        prizePoolDistributor.muxClaim(id3, muxContainer, muxContainerOwner);
+        vm.stopPrank();
+
+        assertEq(prizePoolDistributor.isTokenUsed(id3), false, "_testClaim: E00");
+        vm.startPrank(muxContainerOwner);
+        uint256 _muxContainerOwnerRewardOut = prizePoolDistributor.muxClaim(id3, muxContainer, muxContainerOwner);
+        vm.stopPrank();
+
+        assertEq(_muxContainerReward, _muxContainerOwnerRewardOut, "_testClaim: E0");
+        assertEq(IERC20(WETH).balanceOf(muxContainerOwner), _muxContainerOwnerBalanceBefore + _muxContainerReward, "_testClaim: E1");
+        assertEq(prizePoolDistributor.isTokenUsed(id3), true, "_testClaim: E01");
+        assertEq(prizePoolDistributor.usedTokens(2), id3, "_testClaim: E001");
     }
 }

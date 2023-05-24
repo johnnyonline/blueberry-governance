@@ -33,20 +33,20 @@ contract PrizePoolDistributor is ReentrancyGuard, Auth {
         token = _token;
     }
 
-    // ============================================================================================
-    // View Function
-    // ============================================================================================
-
-    // function getMuxContainerOwner(address _container) public view returns (address) {
-    //     return IGLPAdapter(_container).muxAccountState().account;
-    // }
-
     function getMuxContainerOwner(address _container) public view returns (address) {
-        try IGLPAdapter(_container).muxAccountState() returns (AccountState memory result) {
-            return result.account;
-        } catch {
+        if (isContract(_container)) {
+            return IGLPAdapter(_container).muxAccountState().account;
+        } else {
             return address(0);
         }
+    }
+
+    function isContract(address _addr) private view returns (bool){
+        uint32 size;
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return (size > 0);
     }
 
     // ============================================================================================
@@ -89,9 +89,9 @@ contract PrizePoolDistributor is ReentrancyGuard, Auth {
 
         uint256 _unclaimedRewards = IERC20(WETH).balanceOf(address(this));
 
-        IERC20(WETH).safeTransferFrom(msg.sender, address(this), _newRewards);
-
         emit Distribute(_unclaimedRewards, _newRewards);
+
+        IERC20(WETH).safeTransferFrom(msg.sender, address(this), _newRewards);
     }
 
     function setClaimable(bool _claimable) external requiresAuth {
@@ -114,9 +114,9 @@ contract PrizePoolDistributor is ReentrancyGuard, Auth {
         isTokenUsed[_tokenID] = true;
         usedTokens.push(_tokenID);
 
-        IERC20(WETH).safeTransfer(_receiver, _reward);
-
         emit Claim(msg.sender, _winner, _receiver, _reward);
+
+        IERC20(WETH).safeTransfer(_receiver, _reward);
     }
 
     // ============================================================================================
