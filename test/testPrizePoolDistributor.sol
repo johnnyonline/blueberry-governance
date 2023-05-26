@@ -117,14 +117,14 @@ contract testPrizePoolDistributor is Test {
         prizePoolDistributor.distribute(_totalNewRewards, _rewardsList, _winnersList);
         vm.stopPrank();
 
-        assertEq(prizePoolDistributor.usedTokens(id1), false, "_testDistribute: E0");
-        assertEq(prizePoolDistributor.usedTokens(id2), false, "_testDistribute: E1");
-        assertEq(prizePoolDistributor.usedTokens(id3), false, "_testDistribute: E2");
-        assertEq(prizePoolDistributor.getWinnerReward(alice), 1 ether, "_testDistribute: E3");
-        assertEq(prizePoolDistributor.getWinnerReward(bob), 2 ether, "_testDistribute: E4");
-        assertEq(prizePoolDistributor.getWinnerReward(yossi), 3 ether, "_testDistribute: E5");
-        assertEq(prizePoolDistributor.getWinnerReward(muxContainer), 4 ether, "_testDistribute: E6");
-        assertEq(prizePoolDistributor.muxContainerOwner(muxContainer), muxContainerOwner, "_testDistribute: E7");
+        assertEq(prizePoolDistributor.isTokenClaimed(id1), false, "_testDistribute: E0");
+        assertEq(prizePoolDistributor.isTokenClaimed(id2), false, "_testDistribute: E1");
+        assertEq(prizePoolDistributor.isTokenClaimed(id3), false, "_testDistribute: E2");
+        assertEq(prizePoolDistributor.rewardForWinner(alice), 1 ether, "_testDistribute: E3");
+        assertEq(prizePoolDistributor.rewardForWinner(bob), 2 ether, "_testDistribute: E4");
+        assertEq(prizePoolDistributor.rewardForWinner(yossi), 3 ether, "_testDistribute: E5");
+        assertEq(prizePoolDistributor.rewardForWinner(muxContainer), 4 ether, "_testDistribute: E6");
+        assertEq(prizePoolDistributor.getMuxContainerOwner(muxContainer), muxContainerOwner, "_testDistribute: E7");
         assertEq(IERC20(WETH).balanceOf(address(prizePoolDistributor)), _totalNewRewards + _oldWETHBalance, "_testDistribute: E8");
     }
 
@@ -139,7 +139,7 @@ contract testPrizePoolDistributor is Test {
         prizePoolDistributor.setClaimable(true);
         vm.stopPrank();
         
-        assertEq(prizePoolDistributor.usedTokens(id1), false, "_testClaim: E00");
+        assertEq(prizePoolDistributor.isTokenClaimed(id1), false, "_testClaim: E00");
         vm.startPrank(alice);
         vm.expectRevert(); // reverts with "NotOwnerOfToken"
         prizePoolDistributor.claim(5, alice);
@@ -155,20 +155,20 @@ contract testPrizePoolDistributor is Test {
 
         assertEq(_aliceReward, _aliceRewardOut, "_testClaim: E0");
         assertEq(IERC20(WETH).balanceOf(alice), _aliceBalanceBefore + _aliceReward, "_testClaim: E1");
-        assertEq(prizePoolDistributor.usedTokens(id1), true, "_testClaim: E01");
-        assertEq(prizePoolDistributor.usedTokens(0), false, "_testClaim: E001");
+        assertEq(prizePoolDistributor.isTokenClaimed(id1), true, "_testClaim: E01");
+        assertEq(prizePoolDistributor.isTokenClaimed(0), false, "_testClaim: E001");
 
-        assertEq(prizePoolDistributor.usedTokens(id2), false, "_testClaim: E02");
+        assertEq(prizePoolDistributor.isTokenClaimed(id2), false, "_testClaim: E02");
         vm.startPrank(bob);
         uint256 _bobRewardOut = prizePoolDistributor.claim(id2, bob);
         vm.stopPrank();
 
         assertEq(_bobReward, _bobRewardOut, "_testClaim: E2");
         assertEq(IERC20(WETH).balanceOf(bob), _bobBalanceBefore + _bobReward, "_testClaim: E3");
-        assertEq(prizePoolDistributor.usedTokens(id2), true, "_testClaim: E03");
-        assertEq(prizePoolDistributor.usedTokens(1), false, "_testClaim: E003");
+        assertEq(prizePoolDistributor.isTokenClaimed(id2), true, "_testClaim: E03");
+        assertEq(prizePoolDistributor.isTokenClaimed(1), false, "_testClaim: E003");
 
-        assertEq(prizePoolDistributor.usedTokens(id3), false, "_testClaim: E04");
+        assertEq(prizePoolDistributor.isTokenClaimed(id3), false, "_testClaim: E04");
         vm.startPrank(yossi);
         vm.expectRevert(); // reverts with "NotOwnerOfToken"
         prizePoolDistributor.claim(id3, yossi);
@@ -183,14 +183,14 @@ contract testPrizePoolDistributor is Test {
         prizePoolDistributor.muxClaim(id3, muxContainer, muxContainerOwner);
         vm.stopPrank();
 
-        assertEq(prizePoolDistributor.usedTokens(id3), false, "_testClaim: E00");
+        assertEq(prizePoolDistributor.isTokenClaimed(id3), false, "_testClaim: E00");
         vm.startPrank(muxContainerOwner);
         uint256 _muxContainerOwnerRewardOut = prizePoolDistributor.muxClaim(id3, muxContainer, muxContainerOwner);
         vm.stopPrank();
 
         assertEq(_muxContainerReward, _muxContainerOwnerRewardOut, "_testClaim: E0");
         assertEq(IERC20(WETH).balanceOf(muxContainerOwner), _muxContainerOwnerBalanceBefore + _muxContainerReward, "_testClaim: E1");
-        assertEq(prizePoolDistributor.usedTokens(id3), true, "_testClaim: E01");
-        assertEq(prizePoolDistributor.usedTokens(2), false, "_testClaim: E001");
+        assertEq(prizePoolDistributor.isTokenClaimed(id3), true, "_testClaim: E01");
+        assertEq(prizePoolDistributor.isTokenClaimed(2), false, "_testClaim: E001");
     }
 }

@@ -14,7 +14,7 @@ contract DeployPrizePoolDistributor is Script {
     function run() public {
         
         uint256 _deployerPrivateKey = vm.envUint("GBC_DEPLOYER_PRIVATE_KEY");
-        address _deployer = vm.envAddress("GBC_DEPLOYER_ADDRESS");
+        // address _deployer = vm.envAddress("GBC_DEPLOYER_ADDRESS");
         address _owner = address(0xDe2DBb7f1C893Cc5E2f51CbFd2A73C8a016183a0); // https://arbiscan.io/address/0x575F40E8422EfA696108dAFD12cD8d6366982416#readContract
         IERC721 _gbc = IERC721(0x17f4BAa9D35Ee54fFbCb2608e20786473c7aa49f);
         Authority _authority = Authority(0x575F40E8422EfA696108dAFD12cD8d6366982416);
@@ -35,7 +35,7 @@ contract DeployPrizePoolDistributor is Script {
 
 // ---- Notes ----
 
-// deployed at `0xEF4E37D97D24a3E8fbD608A0b1a45380E21d1C3a`
+// deployed at `0xEd6265F1030186dd09cAEb1B827078aC0f6EE970`
 
 // forge script script/DeployPrizePoolDistributor.s.sol:DeployPrizePoolDistributor --rpc-url $RPC_URL --broadcast
 // https://abi.hashex.org/ - for constructor
